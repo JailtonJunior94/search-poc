@@ -11,15 +11,36 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-type User struct {
-	ID       int `gorm:"primaryKey"`
-	FullName string
-	Email    string
-	gorm.Model
+type Branch struct {
+	ID         uuid.UUID `gorm:"primaryKey"`
+	Name       string
+	CategoryID uuid.NullUUID
+	Category   *Category
+}
+
+func NewBranch(name string, categoryID uuid.NullUUID) *Branch {
+	return &Branch{
+		ID:         uuid.New(),
+		Name:       name,
+		CategoryID: categoryID,
+	}
+}
+
+type Category struct {
+	ID   uuid.UUID `gorm:"primaryKey"`
+	Name string
+}
+
+func NewCategory(name string) *Category {
+	return &Category{
+		ID:   uuid.New(),
+		Name: name,
+	}
 }
 
 func main() {
@@ -28,7 +49,15 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	db.AutoMigrate(&User{})
+
+	var branches []*Branch
+	db.Model(&Branch{}).Preload("Category").Find(&branches)
+
+	// // category := NewCategory("categoria1")
+	// // db.Create(category)
+
+	// branch := NewBranch("branch", uuid.NullUUID{})
+	// db.Create(branch)
 
 	//users := []User{
 	// 	{FullName: "Jailton Angelo Teixeira Junior", Email: "jailton.junior94@outlook.com"},
@@ -39,9 +68,9 @@ func main() {
 
 	router := chi.NewRouter()
 	router.Use(middleware.Heartbeat("/health"))
-	router.Get("/users", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/branches", func(w http.ResponseWriter, r *http.Request) {
 		name := r.URL.Query().Get("name")
-		var users []User
+		var users []Branch
 
 		db.Where("LOWER(full_name) LIKE ?", fmt.Sprintf("%%%s%%", strings.ToLower(name))).Find(&users)
 		responses.JSON(w, http.StatusOK, users)
